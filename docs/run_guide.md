@@ -1,47 +1,19 @@
 # Run Guide
 
-## 1) HF dataset transcript field
+The recommended run flow is stage-based:
 
-```bash
-ctc-build-vocab --config configs/train_hf_dataset_text.yaml
-ctc-train --config configs/train_hf_dataset_text.yaml
-```
+1. `pipeline/01_data_prep/README.md`
+2. `pipeline/02_train/README.md`
+3. `pipeline/03_eval/README.md`
 
-## 2) HF audio + pseudolabel JSON
+Use one of these configs throughout stages 01-03:
 
-```bash
-ctc-build-vocab --config configs/train_hf_audio_pseudolabel_json.yaml
-ctc-train --config configs/train_hf_audio_pseudolabel_json.yaml
-```
+- `configs/train_hf_dataset_text.yaml`
+- `configs/train_hf_audio_pseudolabel_json.yaml`
+- `configs/train_hf_audio_external_gt_json.yaml`
+- `configs/train_local_manifest_text.yaml`
 
-## 3) Local manifests
-
-```bash
-ctc-build-vocab --config configs/train_local_manifest_text.yaml
-ctc-train --config configs/train_local_manifest_text.yaml
-```
-
-## 4) External ground-truth JSON join
-
-```bash
-ctc-build-vocab --config configs/train_hf_audio_external_gt_json.yaml
-ctc-train --config configs/train_hf_audio_external_gt_json.yaml
-```
-
-## 5) Evaluation
-
-```bash
-ctc-eval --config configs/train_hf_dataset_text.yaml --set eval.model_dir=runs/xlsr300m_gt
-ctc-eval --config configs/train_local_manifest_text.yaml --set eval.model_dir=runs/local_xlsr300m_gt
-```
-
-## 6) Plot Comparison
-
-```bash
-ctc-plot-compare --config configs/plot_compare.yaml
-```
-
-## Notes
+Notes:
 
 - Every training run writes `resolved_config.yaml` and `train_command.sh` into `training.out_dir`.
 - Use `--set key=value` for overrides.

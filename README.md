@@ -8,6 +8,14 @@ Config-driven SSL-CTC fine-tuning framework (XLSR-first defaults).
 pip install -e .
 ```
 
+## Pipeline stages
+
+Run the project as 3 explicit stages:
+
+1. Data prep: [`pipeline/01_data_prep/README.md`](pipeline/01_data_prep/README.md)
+2. Train: [`pipeline/02_train/README.md`](pipeline/02_train/README.md)
+3. Eval: [`pipeline/03_eval/README.md`](pipeline/03_eval/README.md)
+
 Build vocab + train (HF dataset transcript field):
 
 ```bash
