@@ -1,0 +1,15 @@
+datasets==2.21.0
+librosa==0.11.0
+numpy==2.2.6
+soundfile==0.13.1
+tokenizers==0.22.2
+torch>=2.8.0
+torchaudio>=2.8.0
+transformers==4.57.6
+jiwer==4.0.0
+evaluate==0.4.6
+accelerate==1.11.0
+matplotlib==3.10.1
+PyYAML==6.0.2
+cn2an==0.5.23
+num2words==0.5.14

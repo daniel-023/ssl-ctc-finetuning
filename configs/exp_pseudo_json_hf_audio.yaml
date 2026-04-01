@@ -1,0 +1,58 @@
+model:
+  name_or_path: facebook/wav2vec2-xls-r-300m
+
+dataset:
+  type: hf
+  name: pengyizhou/nsc-imda-part6
+  config: null
+  train_split: train
+  val_split: validation
+  test_split: test
+  audio_col: audio
+  text_col: text
+  test_audio_col: audio
+  test_text_col: text
+
+transcripts:
+  source: pseudo_json
+  pseudo_jsonl: ../ctc_finetuning/nsc_full_WITH_SCORES_streamed.jsonl
+  pseudo_dev_jsonl: null
+  pseudo_audio_col: audio_path
+  pseudo_join_on_hf_id: true
+  pseudo_hf_id_col: id
+  pseudo_hf_splits: train,validation
+  disallow_test_split_in_pseudo_join: true
+  pseudo_score_col: score
+  pseudo_min_score: 0.6
+
+normalization:
+  use_text_normalizer: true
+  normalizer_yaml: legacy/text_normalisation/fillers.yaml
+
+vocab:
+  mode: shared_hf_plus_pseudo
+  out_path: artifacts/vocab/vocab_shared.json
+  score_col: score
+  min_score: 0.0
+  aux_score_col: score
+  aux_min_score: 0.6
+
+training:
+  out_dir: runs/xlsr300m_pseudo
+  max_sec: 30.0
+  num_proc: 8
+  seed: 42
+  val_size: 0.1
+  bs: 16
+  grad_accum: 2
+  lr: 3.0e-5
+  epochs: 20.0
+  lr_scheduler: cosine
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  eval_steps: 1200
+  save_steps: 1200
+  logging_steps: 50
+  save_total_limit: 4
+  best_metric: wer_decoded_norm
