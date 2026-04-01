@@ -1,1 +1,1 @@
-"""Shared utilities for CLI wrappers."""
+"""Utility helpers."""
