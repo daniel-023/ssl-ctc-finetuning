@@ -23,6 +23,9 @@ ctc-build-vocab --config configs/train_hf_dataset_text.yaml
 ctc-train --config configs/train_hf_dataset_text.yaml
 ```
 
+Note: this config reproduces your original experiment design by building a shared vocab
+from HF transcript text + pseudolabel text (`vocab.mode=shared_hf_plus_pseudolabel`).
+
 Build vocab + train (HF audio + pseudolabel JSON):
 
 ```bash

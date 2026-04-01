@@ -18,16 +18,24 @@ dataset:
 
 transcript:
   source: inline
+  jsonl:
+    type: pseudolabel
+    json_path: examples/pseudolabels/IMDA_pseudolabels.jsonl
+    text_col: text
+    score_col: score
+    min_score: 0.6
 
 normalization:
   use_text_normalizer: true
   normalizer_yaml: null
 
 vocab:
-  mode: dataset_only
-  out_path: artifacts/vocab/vocab_gt.json
+  mode: shared_hf_plus_pseudolabel
+  out_path: artifacts/vocab/vocab_shared.json
   score_col: score
   min_score: 0.0
+  aux_score_col: score
+  aux_min_score: 0.6
 
 training:
   out_dir: runs/xlsr300m_gt
