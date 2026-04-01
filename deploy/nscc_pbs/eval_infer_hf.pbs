@@ -1,0 +1,99 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -N ctc_eval_hf
+#PBS -l select=1:ncpus=4:mem=32gb:ngpus=1
+#PBS -l walltime=08:00:00
+#PBS -P 12004380
+#PBS -j oe
+
+set -euo pipefail
+
+module purge
+# module load cuda/12.2.2
+# module load cudnn/12-8.9.7.29
+
+export MAMBA_ROOT_PREFIX=/scratch/users/ntu/daniel02/micromamba
+MAMBA=/scratch/users/ntu/daniel02/tools/micromamba/bin/micromamba
+export PYTHONNOUSERSITE=1
+
+source ~/.secrets/hf_token.sh
+
+echo "=== GPU INFO ==="
+nvidia-smi || true
+
+echo "=== TORCH CUDA INFO ==="
+$MAMBA run -n xlsr_cuda python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+
+WORK=/scratch/users/ntu/daniel02/asr-pipeline/ctc_finetuning
+export HF_HOME=$WORK/hf_cache
+export HF_DATASETS_CACHE=$HF_HOME/datasets
+export TRANSFORMERS_CACHE=$HF_HOME/transformers
+export TORCH_HOME=$HF_HOME/torch
+mkdir -p "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE" "$TORCH_HOME"
+
+cd "$WORK/scripts"
+
+# ----------------------------
+# Edit these for each eval run
+# ----------------------------
+MODEL_DIR="${MODEL_DIR:-$WORK/runs/xlsr300m_YYYYMMDD_HHMMSS}"
+DATASET="${DATASET:-pengyizhou/nsc-imda-part6}"
+CONFIG="${CONFIG:-}"  # leave empty if no config
+SPLIT="${SPLIT:-test}"
+AUDIO_COL="${AUDIO_COL:-audio}"
+TEXT_COL="${TEXT_COL:-text}"
+ID_COL="${ID_COL:-id}"
+BATCH_SIZE="${BATCH_SIZE:-16}"
+NUM_WORKERS="${NUM_WORKERS:-4}"
+MAX_SEC="${MAX_SEC:-0}"          # 0 disables duration filtering
+NUM_SAMPLES="${NUM_SAMPLES:-0}"  # 0 = all samples
+
+OUT_DIR="${OUT_DIR:-$WORK/eval_outputs/$(date +%Y%m%d_%H%M%S)}"
+mkdir -p "$OUT_DIR"
+
+METRICS_JSON="$OUT_DIR/metrics_${DATASET//\//_}_${SPLIT}.json"
+PRED_JSONL="$OUT_DIR/preds_${DATASET//\//_}_${SPLIT}.jsonl"
+
+echo "=== EVAL CONFIG ==="
+echo "MODEL_DIR=$MODEL_DIR"
+echo "DATASET=$DATASET"
+echo "CONFIG=${CONFIG:-<none>}"
+echo "SPLIT=$SPLIT"
+echo "AUDIO_COL=$AUDIO_COL"
+echo "TEXT_COL=$TEXT_COL"
+echo "ID_COL=$ID_COL"
+echo "BATCH_SIZE=$BATCH_SIZE"
+echo "NUM_WORKERS=$NUM_WORKERS"
+echo "MAX_SEC=$MAX_SEC"
+echo "NUM_SAMPLES=$NUM_SAMPLES"
+echo "OUT_DIR=$OUT_DIR"
+
+CMD=(
+  "$MAMBA" run -n xlsr_cuda python eval_infer_hf.py
+  --model_dir "$MODEL_DIR"
+  --dataset "$DATASET"
+  --split "$SPLIT"
+  --audio_col "$AUDIO_COL"
+  --text_col "$TEXT_COL"
+  --id_col "$ID_COL"
+  --device "cuda"
+  --batch_size "$BATCH_SIZE"
+  --num_workers "$NUM_WORKERS"
+  --max_sec "$MAX_SEC"
+  --num_samples "$NUM_SAMPLES"
+  --out_json "$METRICS_JSON"
+  --out_jsonl "$PRED_JSONL"
+)
+
+if [[ -n "$CONFIG" ]]; then
+  CMD+=(--config "$CONFIG")
+fi
+
+echo "=== RUNNING ==="
+printf '%q ' "${CMD[@]}"
+echo
+"${CMD[@]}"
+
+echo "=== DONE ==="
+echo "Metrics: $METRICS_JSON"
+echo "Predictions: $PRED_JSONL"

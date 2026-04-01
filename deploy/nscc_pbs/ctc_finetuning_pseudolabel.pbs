@@ -1,0 +1,95 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -N ctc_pseudolabel
+#PBS -l select=1:ngpus=2
+#PBS -l walltime=24:00:00
+#PBS -P 12004380
+#PBS -j oe
+
+set -euo pipefail
+
+module purge
+# module load cuda/12.2.2
+# module load cudnn/12-8.9.7.29
+
+export MAMBA_ROOT_PREFIX=/scratch/users/ntu/daniel02/micromamba
+MAMBA=/scratch/users/ntu/daniel02/tools/micromamba/bin/micromamba
+export PYTHONNOUSERSITE=1
+
+source ~/.secrets/hf_token.sh
+
+echo "=== GPU INFO ==="
+nvidia-smi
+
+echo "=== TORCH CUDA INFO ==="
+$MAMBA run -n xlsr_cuda python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+
+WORK=/scratch/users/ntu/daniel02/asr-pipeline/ctc_finetuning
+export HF_HOME=$WORK/hf_cache
+export HF_DATASETS_CACHE=$HF_HOME/datasets
+export TRANSFORMERS_CACHE=$HF_HOME/transformers
+export TORCH_HOME=$HF_HOME/torch
+mkdir -p "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE" "$TORCH_HOME"
+
+cd $WORK/scripts
+
+# HF test set for final gold evaluation
+DATASET="pengyizhou/nsc-imda-part6"
+TEXT_COL="text"
+
+# Pseudolabel source
+PSEUDO_JSONL="$WORK/scripts/nsc_full_WITH_SCORES_streamed.jsonl"
+PSEUDO_MIN_SCORE=0.60
+
+RUN_DIR=../runs/pseudo_xlsr300m_$(date +%Y%m%d_%H%M%S)
+LOG_FILE="${RUN_DIR}/training.log"
+mkdir -p "$RUN_DIR"
+
+# Avoid torchrun rendezvous port collisions across concurrent jobs.
+JOB_NUM=$(echo "${PBS_JOBID:-0}" | tr -cd '0-9')
+MASTER_PORT=$((15000 + (JOB_NUM % 20000)))
+echo "Using torchrun master_port=${MASTER_PORT}"
+
+# Build shared vocab (HF text + pseudolabel text)
+$MAMBA run -n xlsr_cuda python make_vocab.py \
+  --dataset "$DATASET" \
+  --train_split "train" \
+  --text_col "$TEXT_COL" \
+  --aux_jsonl "$PSEUDO_JSONL" \
+  --aux_text_col "$TEXT_COL" \
+  --aux_score_col "score" \
+  --aux_min_score "$PSEUDO_MIN_SCORE" \
+  --out ../artifacts/vocab/vocab_shared.json
+
+# Fine-tune on pseudolabels, evaluate final WER on HF test split
+$MAMBA run -n xlsr_cuda torchrun --nproc_per_node=2 --master_port "${MASTER_PORT}" train_asr.py \
+  --train_source "pseudo" \
+  --dataset "$DATASET" \
+  --text_col "$TEXT_COL" \
+  --audio_col "audio" \
+  --test_text_col "$TEXT_COL" \
+  --test_split "test" \
+  --pseudo_jsonl "$PSEUDO_JSONL" \
+  --pseudo_audio_col "audio_path" \
+  --pseudo_join_on_hf_id \
+  --pseudo_hf_id_col "id" \
+  --pseudo_hf_splits "train,validation" \
+  --pseudo_score_col "score" \
+  --pseudo_min_score "$PSEUDO_MIN_SCORE" \
+  --num_proc 8 \
+  --vocab ../artifacts/vocab/vocab_shared.json \
+  --out "$RUN_DIR" \
+  --max_sec 30 \
+  --bs 16 \
+  --grad_accum 2 \
+  --lr 3e-5 \
+  --lr_scheduler cosine \
+  --warmup_ratio 0.1 \
+  --weight_decay 0.01 \
+  --max_grad_norm 1.0 \
+  --epochs 20 \
+  --save_steps 1200 \
+  --eval_steps 1200 \
+  --logging_steps 50 \
+  --save_total_limit 4 \
+  2>&1 | tee "$LOG_FILE"
