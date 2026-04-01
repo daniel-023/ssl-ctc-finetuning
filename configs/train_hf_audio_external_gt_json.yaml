@@ -17,14 +17,15 @@ dataset:
     id: id
 
 transcript:
-  source: external_gt_json
+  source: jsonl
+  jsonl:
+    type: ground_truth
+    json_path: examples/transcripts/ground_truth.jsonl
+    text_col: text
   join:
     dataset_key: id
+    json_key: id
     strict: true
-  external_gt:
-    json_path: examples/transcripts/ground_truth.jsonl
-    id_col: id
-    text_col: text
 
 normalization:
   use_text_normalizer: true

@@ -124,23 +124,23 @@ def normalize_batch(batch, text_col: str, text_normalize_fn):
     return batch
 
 
-def load_external_transcript_map(cfg: dict, config_path: Path) -> Dict[str, str]:
-    json_path = resolve_path(get_in(cfg, "transcript.external_gt.json_path"), config_path)
+def load_jsonl_transcript_map(cfg: dict, config_path: Path) -> Dict[str, str]:
+    json_path = resolve_path(get_in(cfg, "transcript.jsonl.json_path"), config_path)
     if json_path is None or not json_path.exists():
-        raise FileNotFoundError(f"External transcript JSON not found: {json_path}")
+        raise FileNotFoundError(f"Transcript JSON not found: {json_path}")
 
-    transcript_id_col = str(get_in(cfg, "transcript.external_gt.id_col", "id"))
-    transcript_text_col = str(get_in(cfg, "transcript.external_gt.text_col", "text"))
+    transcript_id_col = str(get_in(cfg, "transcript.join.json_key", "id"))
+    transcript_text_col = str(get_in(cfg, "transcript.jsonl.text_col", "text"))
 
     ds = load_dataset("json", data_files=str(json_path), split="train")
     if transcript_id_col not in ds.column_names:
         raise ValueError(
-            f"External transcript id column '{transcript_id_col}' not found in {json_path}. "
+            f"Transcript id column '{transcript_id_col}' not found in {json_path}. "
             f"Available columns: {ds.column_names}"
         )
     if transcript_text_col not in ds.column_names:
         raise ValueError(
-            f"External transcript text column '{transcript_text_col}' not found in {json_path}. "
+            f"Transcript text column '{transcript_text_col}' not found in {json_path}. "
             f"Available columns: {ds.column_names}"
         )
 
@@ -149,15 +149,15 @@ def load_external_transcript_map(cfg: dict, config_path: Path) -> Dict[str, str]
         key = str(row[transcript_id_col])
         val = str(row[transcript_text_col] or "")
         if key in out:
-            raise ValueError(f"Duplicate transcript key '{key}' found in external JSON {json_path}.")
+            raise ValueError(f"Duplicate transcript key '{key}' found in JSON {json_path}.")
         out[key] = val
 
     if not out:
-        raise ValueError(f"External transcript JSON is empty: {json_path}")
+        raise ValueError(f"Transcript JSON is empty: {json_path}")
     return out
 
 
-def apply_external_transcripts(ds, split_name: str, cfg: dict, transcript_map: Dict[str, str]):
+def apply_jsonl_transcripts(ds, split_name: str, cfg: dict, transcript_map: Dict[str, str]):
     dataset_id_col = str(get_in(cfg, "transcript.join.dataset_key", "id"))
     strict = bool(get_in(cfg, "transcript.join.strict", True))
     text_col = str(get_in(cfg, "dataset.columns.transcript"))
@@ -185,14 +185,14 @@ def apply_external_transcripts(ds, split_name: str, cfg: dict, transcript_map: D
 
     if not keep_indices:
         raise ValueError(
-            f"External transcript join produced 0 matches for split '{split_name}'. "
+            f"Transcript JSON join produced 0 matches for split '{split_name}'. "
             "Check dataset/transcript join keys and id formats."
         )
 
     if missing and strict:
         preview = ", ".join(missing[:5])
         raise ValueError(
-            f"External transcript join missing {len(missing)} ids for split '{split_name}'. "
+            f"Transcript JSON join missing {len(missing)} ids for split '{split_name}'. "
             f"Examples: {preview}. Set transcript.join.strict=false to drop unmatched rows."
         )
 
@@ -206,7 +206,7 @@ def apply_external_transcripts(ds, split_name: str, cfg: dict, transcript_map: D
     out_ds = out_ds.add_column("__utt_id", keep_ids)
 
     print(
-        f"External transcript join split={split_name}: matched={len(keep_indices)} "
+        f"Transcript JSON join split={split_name}: matched={len(keep_indices)} "
         f"dropped_unmatched={len(missing)} source_rows={len(ds)}"
     )
     return out_ds
@@ -220,18 +220,19 @@ def load_pseudolabel_dataset(cfg: dict, config_path: Path):
             "from HF splits by id."
         )
 
-    pseudo_json = resolve_path(get_in(cfg, "transcript.pseudolabel.json_path"), config_path)
+    pseudo_json = resolve_path(get_in(cfg, "transcript.jsonl.json_path"), config_path)
     if pseudo_json is None or not pseudo_json.exists():
         raise FileNotFoundError(f"Pseudolabel JSON not found: {pseudo_json}")
 
     text_col = str(get_in(cfg, "dataset.columns.transcript"))
+    pseudo_text_col = str(get_in(cfg, "transcript.jsonl.text_col", text_col))
     audio_col = str(get_in(cfg, "dataset.columns.audio"))
-    pseudo_audio_col = str(get_in(cfg, "transcript.pseudolabel.audio_path_col", "audio_path"))
-    pseudo_score_col = str(get_in(cfg, "transcript.pseudolabel.score_col", "score"))
-    pseudo_min_score = float(get_in(cfg, "transcript.pseudolabel.min_score", 0.0))
-    hf_id_col = str(get_in(cfg, "transcript.pseudolabel.hf_id_col", "id"))
-    hf_audio_splits = str(get_in(cfg, "transcript.pseudolabel.hf_audio_splits", "train,validation"))
-    prevent_test_leakage = bool(get_in(cfg, "transcript.pseudolabel.prevent_test_leakage", True))
+    pseudo_audio_col = str(get_in(cfg, "transcript.jsonl.audio_path_col", "audio_path"))
+    pseudo_score_col = str(get_in(cfg, "transcript.jsonl.score_col", "score"))
+    pseudo_min_score = float(get_in(cfg, "transcript.jsonl.min_score", 0.0))
+    hf_id_col = str(get_in(cfg, "transcript.jsonl.hf_id_col", "id"))
+    hf_audio_splits = str(get_in(cfg, "transcript.jsonl.hf_audio_splits", "train,validation"))
+    prevent_test_leakage = bool(get_in(cfg, "transcript.jsonl.prevent_test_leakage", True))
     test_split = str(get_in(cfg, "dataset.splits.test", "test"))
     num_proc = int(get_in(cfg, "training.num_proc", 4))
 
@@ -258,9 +259,9 @@ def load_pseudolabel_dataset(cfg: dict, config_path: Path):
             f"Pseudolabel audio column '{pseudo_audio_col}' not found in {pseudo_json}. "
             f"Available columns: {ds.column_names}"
         )
-    if text_col not in ds.column_names:
+    if pseudo_text_col not in ds.column_names:
         raise ValueError(
-            f"Text column '{text_col}' not found in {pseudo_json}. "
+            f"Text column '{pseudo_text_col}' not found in {pseudo_json}. "
             f"Available columns: {ds.column_names}"
         )
 
@@ -270,7 +271,7 @@ def load_pseudolabel_dataset(cfg: dict, config_path: Path):
     if prevent_test_leakage and test_split in set(split_names):
         raise ValueError(
             f"Pseudolabel HF audio splits include test split '{test_split}' in "
-            f"transcript.pseudolabel.hf_audio_splits={split_names}."
+            f"transcript.jsonl.hf_audio_splits={split_names}."
         )
 
     hf_parts = []
@@ -301,7 +302,7 @@ def load_pseudolabel_dataset(cfg: dict, config_path: Path):
             id_to_idx[key] = i
 
     pseudo_ids = [str(x) for x in ds["__hf_id"]]
-    pseudo_texts = [str(x) for x in ds[text_col]]
+    pseudo_texts = [str(x) for x in ds[pseudo_text_col]]
     pseudo_scores = [x for x in ds[pseudo_score_col]] if pseudo_score_col in ds.column_names else None
 
     keep_hf_indices: List[int] = []
@@ -350,7 +351,8 @@ def run_training(cfg: dict, config_path: Path, dry_run: bool = False):
 
     model_name_or_path = str(get_in(cfg, "model.name_or_path"))
     dataset_backend = str(get_in(cfg, "dataset.backend", "hf"))
-    transcript_source = str(get_in(cfg, "transcript.source", "dataset_field"))
+    transcript_source = str(get_in(cfg, "transcript.source", "inline"))
+    transcript_json_type = str(get_in(cfg, "transcript.jsonl.type", "ground_truth"))
 
     audio_col = str(get_in(cfg, "dataset.columns.audio"))
     text_col = str(get_in(cfg, "dataset.columns.transcript"))
@@ -386,41 +388,47 @@ def run_training(cfg: dict, config_path: Path, dry_run: bool = False):
 
     # Load train source.
     transcript_map = None
-    if transcript_source == "dataset_field":
+    source_label = transcript_source
+    if transcript_source == "inline":
         train_ds_full = load_split(cfg, config_path, train_split)
-    elif transcript_source == "pseudolabel_json":
-        train_ds_full = load_pseudolabel_dataset(cfg, config_path)
-    elif transcript_source == "external_gt_json":
-        transcript_map = load_external_transcript_map(cfg, config_path)
-        train_ds_full = apply_external_transcripts(
-            load_split(cfg, config_path, train_split), train_split, cfg, transcript_map
-        )
+    elif transcript_source == "jsonl":
+        source_label = f"jsonl:{transcript_json_type}"
+        if transcript_json_type == "pseudolabel":
+            train_ds_full = load_pseudolabel_dataset(cfg, config_path)
+        elif transcript_json_type == "ground_truth":
+            transcript_map = load_jsonl_transcript_map(cfg, config_path)
+            train_ds_full = apply_jsonl_transcripts(
+                load_split(cfg, config_path, train_split), train_split, cfg, transcript_map
+            )
+        else:
+            raise ValueError("transcript.jsonl.type must be one of: ground_truth, pseudolabel")
     else:
-        raise ValueError(
-            "transcript.source must be one of: dataset_field, pseudolabel_json, external_gt_json"
-        )
+        raise ValueError("transcript.source must be one of: inline, jsonl")
 
     test_ds = load_split(cfg, config_path, test_split)
-    if transcript_source == "external_gt_json":
+    if transcript_source == "jsonl" and transcript_json_type == "ground_truth":
         assert transcript_map is not None
-        test_ds = apply_external_transcripts(test_ds, test_split, cfg, transcript_map)
+        test_ds = apply_jsonl_transcripts(test_ds, test_split, cfg, transcript_map)
 
-    pseudo_dev_json = get_in(cfg, "transcript.pseudolabel.dev_json_path")
-    if transcript_source in {"dataset_field", "external_gt_json"} and split_exists(cfg, config_path, val_split):
+    pseudo_dev_json = get_in(cfg, "transcript.jsonl.dev_json_path")
+    if (
+        transcript_source == "inline"
+        or (transcript_source == "jsonl" and transcript_json_type == "ground_truth")
+    ) and split_exists(cfg, config_path, val_split):
         train_ds = train_ds_full
         dev_ds = load_split(cfg, config_path, val_split)
-        if transcript_source == "external_gt_json":
+        if transcript_source == "jsonl" and transcript_json_type == "ground_truth":
             assert transcript_map is not None
-            dev_ds = apply_external_transcripts(dev_ds, val_split, cfg, transcript_map)
+            dev_ds = apply_jsonl_transcripts(dev_ds, val_split, cfg, transcript_map)
         print(f"Using existing validation split: {val_split}")
-    elif transcript_source == "pseudolabel_json" and pseudo_dev_json:
+    elif transcript_source == "jsonl" and transcript_json_type == "pseudolabel" and pseudo_dev_json:
         # Reuse pseudolabel loader by temporarily swapping path.
-        orig_json = get_in(cfg, "transcript.pseudolabel.json_path")
-        cfg["transcript"]["pseudolabel"]["json_path"] = pseudo_dev_json
+        orig_json = get_in(cfg, "transcript.jsonl.json_path")
+        cfg["transcript"]["jsonl"]["json_path"] = pseudo_dev_json
         try:
             dev_ds = load_pseudolabel_dataset(cfg, config_path)
         finally:
-            cfg["transcript"]["pseudolabel"]["json_path"] = orig_json
+            cfg["transcript"]["jsonl"]["json_path"] = orig_json
         train_ds = train_ds_full
         print(f"Using pseudolabel dev JSON: {pseudo_dev_json}")
     else:
@@ -486,7 +494,7 @@ def run_training(cfg: dict, config_path: Path, dry_run: bool = False):
     summary = {
         "model_name_or_path": model_name_or_path,
         "dataset_backend": dataset_backend,
-        "transcript_source": transcript_source,
+        "transcript_source": source_label,
         "normalizer_enabled": use_text_normalizer,
         "normalizer_yaml": used_yaml,
         "splits": {
@@ -544,7 +552,7 @@ def run_training(cfg: dict, config_path: Path, dry_run: bool = False):
 
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(
-        f"Source={transcript_source}; Splits: train={len(train_ds)} "
+        f"Source={source_label}; Splits: train={len(train_ds)} "
         f"eval(dev)={len(dev_ds)} test={len(test_ds)}; trainable_params={trainable}"
     )
 

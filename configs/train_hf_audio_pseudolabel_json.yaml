@@ -17,10 +17,12 @@ dataset:
     id: id
 
 transcript:
-  source: pseudolabel_json
-  pseudolabel:
-    json_path: ../ctc_finetuning/nsc_full_WITH_SCORES_streamed.jsonl
+  source: jsonl
+  jsonl:
+    type: pseudolabel
+    json_path: examples/pseudolabels/IMDA_pseudolabels.jsonl
     dev_json_path: null
+    text_col: text
     audio_path_col: audio_path
     hf_id_col: id
     hf_audio_splits: train,validation

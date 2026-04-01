@@ -23,7 +23,7 @@ dataset:
     audio_root: null
 
 transcript:
-  source: dataset_field
+  source: inline
 
 normalization:
   use_text_normalizer: true

@@ -30,25 +30,23 @@ DEFAULTS = {
         },
     },
     "transcript": {
-        "source": "dataset_field",  # dataset_field | pseudolabel_json | external_gt_json
+        "source": "inline",  # inline | jsonl
         "join": {
             "dataset_key": "id",
+            "json_key": "id",
             "strict": True,
         },
-        "pseudolabel": {
-            "json_path": None,
+        "jsonl": {
+            "type": "pseudolabel",  # ground_truth | pseudolabel
+            "json_path": "examples/pseudolabels/IMDA_pseudolabels.jsonl",
             "dev_json_path": None,
+            "text_col": "text",
+            "score_col": "score",
+            "min_score": 0.0,
             "audio_path_col": "audio_path",
             "hf_id_col": "id",
             "hf_audio_splits": "train,validation",
             "prevent_test_leakage": True,
-            "score_col": "score",
-            "min_score": 0.0,
-        },
-        "external_gt": {
-            "json_path": None,
-            "id_col": "id",
-            "text_col": "text",
         },
     },
     "normalization": {

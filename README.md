@@ -22,6 +22,9 @@ ctc-build-vocab --config configs/train_hf_audio_pseudolabel_json.yaml
 ctc-train --config configs/train_hf_audio_pseudolabel_json.yaml
 ```
 
+Default pseudolabel source in this repo:
+- `examples/pseudolabels/IMDA_pseudolabels.jsonl`
+
 Build vocab + train (local manifests with transcript field):
 
 ```bash
@@ -63,7 +66,7 @@ ctc-train --config configs/train_hf_dataset_text.yaml \
 - `dataset.hf_name` / `dataset.hf_config`
 - `dataset.splits.*`
 - `dataset.columns.*`
-- `transcript.source`: `dataset_field`, `pseudolabel_json`, `external_gt_json`
-- `transcript.pseudolabel.*`
-- `transcript.external_gt.*`
-- `transcript.join.dataset_key` + `transcript.join.strict`
+- `transcript.source`: `inline` or `jsonl`
+- `transcript.jsonl.type`: `ground_truth` or `pseudolabel`
+- `transcript.jsonl.*`
+- `transcript.join.dataset_key` + `transcript.join.json_key` + `transcript.join.strict`

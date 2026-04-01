@@ -10,15 +10,16 @@ from ctc_framework.pipelines.common import build_text_normalizer, normalize_text
 
 def _load_source(cfg: dict, config_path: Path):
     backend = str(get_in(cfg, "dataset.backend", "hf"))
-    transcript_source = str(get_in(cfg, "transcript.source", "dataset_field"))
+    transcript_source = str(get_in(cfg, "transcript.source", "inline"))
+    transcript_json_type = str(get_in(cfg, "transcript.jsonl.type", "ground_truth"))
 
-    if transcript_source == "external_gt_json":
-        json_path = resolve_path(get_in(cfg, "transcript.external_gt.json_path"), config_path)
+    if transcript_source == "jsonl" and transcript_json_type == "ground_truth":
+        json_path = resolve_path(get_in(cfg, "transcript.jsonl.json_path"), config_path)
         if json_path is None or not json_path.exists():
-            raise FileNotFoundError(f"External transcript JSON not found: {json_path}")
-        text_col = str(get_in(cfg, "transcript.external_gt.text_col", "text"))
+            raise FileNotFoundError(f"Ground-truth JSON not found: {json_path}")
+        text_col = str(get_in(cfg, "transcript.jsonl.text_col", "text"))
         ds = load_dataset("json", data_files=str(json_path), split="train")
-        label = f"external_gt_json={json_path}"
+        label = f"ground_truth_json={json_path}"
         return ds, text_col, label
 
     if backend == "local":
@@ -102,19 +103,19 @@ def run_vocab_build(cfg: dict, config_path: Path, dry_run: bool = False):
 
     mode = str(get_in(cfg, "vocab.mode", "dataset_only"))
     if mode == "shared_hf_plus_pseudolabel":
-        pseudo_json = resolve_path(get_in(cfg, "transcript.pseudolabel.json_path"), config_path)
+        pseudo_json = resolve_path(get_in(cfg, "transcript.jsonl.json_path"), config_path)
         if pseudo_json is None or not pseudo_json.exists():
             raise FileNotFoundError(f"Pseudolabel JSON not found for aux vocab merge: {pseudo_json}")
 
         aux_ds = load_dataset("json", data_files=str(pseudo_json), split="train")
         aux_label = f"pseudolabel_json={pseudo_json}"
+        aux_text_col = str(get_in(cfg, "transcript.jsonl.text_col", text_col))
         aux_ds = _apply_score_filter(
             aux_ds,
             str(get_in(cfg, "vocab.aux_score_col", "score")),
-            float(get_in(cfg, "vocab.aux_min_score", get_in(cfg, "transcript.pseudolabel.min_score", 0.0))),
+            float(get_in(cfg, "vocab.aux_min_score", get_in(cfg, "transcript.jsonl.min_score", 0.0))),
             aux_label,
         )
-        aux_text_col = text_col
         aux_vocab, aux_empty, aux_size = _collect_vocab(aux_ds, aux_text_col, aux_label, text_norm_fn)
         print(f"Loaded [{aux_label}] size={aux_size} empty_after_norm={aux_empty}")
         vocab.update(aux_vocab)
