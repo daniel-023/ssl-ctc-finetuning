@@ -1,35 +1,55 @@
-"""Lightweight schema defaults for config-driven CLI wrappers.
-
-This keeps the first phase explicit and simple while preserving legacy behavior.
-"""
+"""Schema defaults for config-driven CLI commands."""
 
 DEFAULTS = {
     "model": {
         "name_or_path": "facebook/wav2vec2-xls-r-300m",
     },
     "dataset": {
-        "type": "hf",
-        "name": "pengyizhou/nsc-imda-part6",
-        "config": None,
-        "train_split": "train",
-        "val_split": "validation",
-        "test_split": "test",
-        "audio_col": "audio",
-        "text_col": "text",
-        "test_audio_col": "audio",
-        "test_text_col": None,
+        "backend": "hf",  # hf | local
+        "hf_name": "pengyizhou/nsc-imda-part6",
+        "hf_config": None,
+        "splits": {
+            "train": "train",
+            "val": "validation",
+            "test": "test",
+        },
+        "columns": {
+            "audio": "audio",
+            "transcript": "text",
+            "test_audio": "audio",
+            "test_transcript": None,
+            "id": "id",
+        },
+        "local": {
+            "manifests": {
+                "train": None,
+                "val": None,
+                "test": None,
+            },
+            "audio_root": None,
+        },
     },
-    "transcripts": {
-        "source": "dataset_field",
-        "pseudo_jsonl": None,
-        "pseudo_dev_jsonl": None,
-        "pseudo_audio_col": "audio_path",
-        "pseudo_join_on_hf_id": True,
-        "pseudo_hf_id_col": "id",
-        "pseudo_hf_splits": "train,validation",
-        "disallow_test_split_in_pseudo_join": True,
-        "pseudo_score_col": "score",
-        "pseudo_min_score": 0.0,
+    "transcript": {
+        "source": "dataset_field",  # dataset_field | pseudolabel_json | external_gt_json
+        "join": {
+            "dataset_key": "id",
+            "strict": True,
+        },
+        "pseudolabel": {
+            "json_path": None,
+            "dev_json_path": None,
+            "audio_path_col": "audio_path",
+            "hf_id_col": "id",
+            "hf_audio_splits": "train,validation",
+            "prevent_test_leakage": True,
+            "score_col": "score",
+            "min_score": 0.0,
+        },
+        "external_gt": {
+            "json_path": None,
+            "id_col": "id",
+            "text_col": "text",
+        },
     },
     "normalization": {
         "use_text_normalizer": True,
@@ -37,7 +57,7 @@ DEFAULTS = {
     },
     "vocab": {
         "out_path": "artifacts/vocab/vocab_shared.json",
-        "mode": "dataset_only",
+        "mode": "dataset_only",  # dataset_only | shared_hf_plus_pseudolabel
         "score_col": "score",
         "min_score": 0.0,
         "aux_score_col": "score",
@@ -65,9 +85,12 @@ DEFAULTS = {
     },
     "eval": {
         "split": "test",
-        "audio_col": "audio",
-        "text_col": "text",
-        "id_col": "id",
+        "columns": {
+            "audio": None,
+            "transcript": None,
+            "id": "id",
+        },
+        "local_manifest": None,
         "batch_size": 16,
         "num_workers": 4,
         "num_samples": 0,
@@ -78,7 +101,16 @@ DEFAULTS = {
         "space_chinese_chars": True,
         "verbalize_numbers": False,
         "device": "auto",
+        "model_dir": None,
         "out_json": "eval_outputs/metrics.json",
         "out_jsonl": "eval_outputs/preds.jsonl",
+    },
+    "plot": {
+        "ground_truth_run": None,
+        "pseudolabel_run": None,
+        "ground_truth_label": "Ground truth",
+        "pseudolabel_label": "Pseudolabel",
+        "wer_variant": "norm",  # norm | raw
+        "out_dir": "runs/compare_plots",
     },
 }
