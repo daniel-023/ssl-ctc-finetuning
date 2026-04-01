@@ -1,0 +1,62 @@
+model:
+  name_or_path: facebook/wav2vec2-xls-r-300m
+
+dataset:
+  backend: hf
+  hf_name: pengyizhou/nsc-imda-part6
+  hf_config: null
+  splits:
+    train: train
+    val: validation
+    test: test
+  columns:
+    audio: audio
+    transcript: text
+    test_audio: audio
+    test_transcript: text
+    id: id
+
+transcript:
+  source: external_gt_json
+  join:
+    dataset_key: id
+    strict: true
+  external_gt:
+    json_path: examples/transcripts/ground_truth.jsonl
+    id_col: id
+    text_col: text
+
+normalization:
+  use_text_normalizer: true
+  normalizer_yaml: null
+
+vocab:
+  mode: dataset_only
+  out_path: artifacts/vocab/vocab_external_gt.json
+
+training:
+  out_dir: runs/xlsr300m_external_gt
+  max_sec: 30.0
+  num_proc: 8
+  seed: 42
+  val_size: 0.1
+  bs: 16
+  grad_accum: 2
+  lr: 3.0e-5
+  epochs: 20.0
+  lr_scheduler: cosine
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  eval_steps: 1200
+  save_steps: 1200
+  logging_steps: 50
+  save_total_limit: 4
+  best_metric: wer_decoded_norm
+
+eval:
+  split: test
+  columns:
+    audio: audio
+    transcript: text
+    id: id

@@ -2,23 +2,26 @@ model:
   name_or_path: facebook/wav2vec2-xls-r-300m
 
 dataset:
-  type: hf
-  name: pengyizhou/nsc-imda-part6
-  config: null
-  train_split: train
-  val_split: validation
-  test_split: test
-  audio_col: audio
-  text_col: text
-  test_audio_col: audio
-  test_text_col: null
+  backend: hf
+  hf_name: pengyizhou/nsc-imda-part6
+  hf_config: null
+  splits:
+    train: train
+    val: validation
+    test: test
+  columns:
+    audio: audio
+    transcript: text
+    test_audio: audio
+    test_transcript: null
+    id: id
 
-transcripts:
+transcript:
   source: dataset_field
 
 normalization:
   use_text_normalizer: true
-  normalizer_yaml: legacy/text_normalisation/fillers.yaml
+  normalizer_yaml: null
 
 vocab:
   mode: dataset_only
@@ -45,3 +48,10 @@ training:
   logging_steps: 50
   save_total_limit: 4
   best_metric: wer_decoded_norm
+
+eval:
+  split: test
+  columns:
+    audio: audio
+    transcript: text
+    id: id

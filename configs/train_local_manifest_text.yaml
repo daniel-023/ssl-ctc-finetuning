@@ -1,0 +1,61 @@
+model:
+  name_or_path: facebook/wav2vec2-xls-r-300m
+
+dataset:
+  backend: local
+  hf_name: local_manifest_dataset
+  hf_config: null
+  splits:
+    train: train
+    val: validation
+    test: test
+  columns:
+    audio: audio_path
+    transcript: text
+    test_audio: audio_path
+    test_transcript: null
+    id: id
+  local:
+    manifests:
+      train: examples/manifests/train.jsonl
+      val: examples/manifests/val.jsonl
+      test: examples/manifests/test.jsonl
+    audio_root: null
+
+transcript:
+  source: dataset_field
+
+normalization:
+  use_text_normalizer: true
+  normalizer_yaml: null
+
+vocab:
+  mode: dataset_only
+  out_path: artifacts/vocab/vocab_local_gt.json
+
+training:
+  out_dir: runs/local_xlsr300m_gt
+  max_sec: 30.0
+  num_proc: 4
+  seed: 42
+  val_size: 0.1
+  bs: 8
+  grad_accum: 2
+  lr: 3.0e-5
+  epochs: 10.0
+  lr_scheduler: cosine
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  eval_steps: 500
+  save_steps: 500
+  logging_steps: 50
+  save_total_limit: 4
+  best_metric: wer_decoded_norm
+
+eval:
+  split: test
+  columns:
+    audio: audio_path
+    transcript: text
+    id: id

@@ -1,0 +1,7 @@
+plot:
+  ground_truth_run: runs/xlsr300m_gt
+  pseudolabel_run: runs/xlsr300m_pseudo
+  ground_truth_label: Ground truth
+  pseudolabel_label: Pseudolabel
+  wer_variant: norm
+  out_dir: runs/compare_plots_norm
