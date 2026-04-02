@@ -308,10 +308,6 @@ def run_plot_compare(cfg: dict, config_path: Path, dry_run: bool = False):
     pseudo_run = resolve_path(get_in(cfg, "plot.pseudolabel_run"), config_path)
     if gt_run is None or pseudo_run is None:
         raise ValueError("plot.ground_truth_run and plot.pseudolabel_run are required")
-    if not gt_run.exists():
-        raise FileNotFoundError(f"Ground-truth run directory not found: {gt_run}")
-    if not pseudo_run.exists():
-        raise FileNotFoundError(f"Pseudolabel run directory not found: {pseudo_run}")
 
     gt_label = str(get_in(cfg, "plot.ground_truth_label", "Ground truth"))
     pseudo_label = str(get_in(cfg, "plot.pseudolabel_label", "Pseudolabel"))
@@ -335,6 +331,11 @@ def run_plot_compare(cfg: dict, config_path: Path, dry_run: bool = False):
         print("Dry run: resolved plot summary")
         print(json.dumps(summary, indent=2, ensure_ascii=False))
         return summary
+
+    if not gt_run.exists():
+        raise FileNotFoundError(f"Ground-truth run directory not found: {gt_run}")
+    if not pseudo_run.exists():
+        raise FileNotFoundError(f"Pseudolabel run directory not found: {pseudo_run}")
 
     try:
         import matplotlib

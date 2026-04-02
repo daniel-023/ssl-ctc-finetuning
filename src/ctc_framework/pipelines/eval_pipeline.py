@@ -2,12 +2,11 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import evaluate
 import torch
 from datasets import Audio, load_dataset
-from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 from ctc_framework.config.loader import get_in
 from ctc_framework.pipelines.common import (
@@ -25,7 +24,7 @@ DIGIT_RE = re.compile(r"\d")
 
 @dataclass
 class InferenceCollator:
-    processor: Wav2Vec2Processor
+    processor: Any
     audio_col: str
 
     def __call__(self, features: List[Dict]) -> Dict[str, torch.Tensor]:
@@ -161,9 +160,9 @@ def _resolve_device(device_cfg: str) -> str:
 
 def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
     model_dir = resolve_path(get_in(cfg, "eval.model_dir"), config_path)
-    if model_dir is None:
+    if model_dir is None and not dry_run:
         raise ValueError("eval.model_dir is required")
-    if not model_dir.exists():
+    if model_dir is not None and not model_dir.exists() and not dry_run:
         raise FileNotFoundError(f"Model directory not found: {model_dir}")
 
     backend = str(get_in(cfg, "dataset.backend", "hf"))
@@ -266,7 +265,7 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
         "dataset": dataset_label,
         "backend": backend,
         "split": eval_split,
-        "model_dir": str(model_dir),
+        "model_dir": str(model_dir) if model_dir is not None else None,
         "num_samples": len(ds),
         "audio_col": str(audio_col),
         "text_col": str(text_col),
@@ -286,7 +285,12 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
         print(json.dumps(summary, indent=2, ensure_ascii=False))
         return summary
 
+    from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+
     device = summary["device"]
+    if model_dir is None:
+        raise ValueError("eval.model_dir is required")
+
     processor = Wav2Vec2Processor.from_pretrained(str(model_dir))
     model = Wav2Vec2ForCTC.from_pretrained(str(model_dir)).to(device)
     model.eval()

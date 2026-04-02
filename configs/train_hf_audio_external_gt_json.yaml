@@ -20,7 +20,7 @@ transcript:
   source: jsonl
   jsonl:
     type: ground_truth
-    json_path: examples/transcripts/ground_truth.jsonl
+    json_path: ../examples/transcripts/ground_truth.jsonl
     text_col: text
   join:
     dataset_key: id
@@ -33,10 +33,10 @@ normalization:
 
 vocab:
   mode: dataset_only
-  out_path: artifacts/vocab/vocab_external_gt.json
+  out_path: ../artifacts/vocab/vocab_external_gt.json
 
 training:
-  out_dir: runs/xlsr300m_external_gt
+  out_dir: ../runs/xlsr300m_external_gt
   max_sec: 30.0
   num_proc: 8
   seed: 42

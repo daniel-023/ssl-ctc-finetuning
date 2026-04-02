@@ -20,7 +20,7 @@ transcript:
   source: jsonl
   jsonl:
     type: pseudolabel
-    json_path: examples/pseudolabels/IMDA_pseudolabels.jsonl
+    json_path: ../examples/pseudolabels/IMDA_pseudolabels.jsonl
     dev_json_path: null
     text_col: text
     audio_path_col: audio_path
@@ -36,14 +36,14 @@ normalization:
 
 vocab:
   mode: shared_hf_plus_pseudolabel
-  out_path: artifacts/vocab/vocab_shared.json
+  out_path: ../artifacts/vocab/vocab_shared.json
   score_col: score
   min_score: 0.0
   aux_score_col: score
   aux_min_score: 0.6
 
 training:
-  out_dir: runs/xlsr300m_pseudo
+  out_dir: ../runs/xlsr300m_pseudo
   max_sec: 30.0
   num_proc: 8
   seed: 42

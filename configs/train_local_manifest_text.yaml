@@ -17,9 +17,9 @@ dataset:
     id: id
   local:
     manifests:
-      train: examples/manifests/train.jsonl
-      val: examples/manifests/val.jsonl
-      test: examples/manifests/test.jsonl
+      train: ../examples/manifests/train.jsonl
+      val: ../examples/manifests/val.jsonl
+      test: ../examples/manifests/test.jsonl
     audio_root: null
 
 transcript:
@@ -31,10 +31,10 @@ normalization:
 
 vocab:
   mode: dataset_only
-  out_path: artifacts/vocab/vocab_local_gt.json
+  out_path: ../artifacts/vocab/vocab_local_gt.json
 
 training:
-  out_dir: runs/local_xlsr300m_gt
+  out_dir: ../runs/local_xlsr300m_gt
   max_sec: 30.0
   num_proc: 4
   seed: 42

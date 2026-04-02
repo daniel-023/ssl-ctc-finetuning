@@ -1,20 +1,12 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import evaluate
 import numpy as np
 import torch
 from datasets import Audio, concatenate_datasets, load_dataset
-from transformers import (
-    Trainer,
-    TrainingArguments,
-    Wav2Vec2CTCTokenizer,
-    Wav2Vec2FeatureExtractor,
-    Wav2Vec2ForCTC,
-    Wav2Vec2Processor,
-)
 
 from ctc_framework.config.loader import get_in, save_yaml
 from ctc_framework.pipelines.common import (
@@ -30,7 +22,7 @@ from ctc_framework.pipelines.common import (
 
 @dataclass
 class DataCollatorCTCWithPadding:
-    processor: Wav2Vec2Processor
+    processor: Any
     audio_col: str
     padding: Union[bool, str] = True
 
@@ -49,7 +41,9 @@ class DataCollatorCTCWithPadding:
         return batch
 
 
-def build_processor(vocab_json: Path) -> Wav2Vec2Processor:
+def build_processor(vocab_json: Path):
+    from transformers import Wav2Vec2CTCTokenizer, Wav2Vec2FeatureExtractor, Wav2Vec2Processor
+
     tokenizer = Wav2Vec2CTCTokenizer(
         str(vocab_json),
         unk_token="[UNK]",
@@ -472,7 +466,7 @@ def run_training(cfg: dict, config_path: Path, dry_run: bool = False):
     dev_ds = dev_ds.cast_column(audio_col, Audio(sampling_rate=TARGET_SR))
     test_ds = test_ds.cast_column(audio_col, Audio(sampling_rate=TARGET_SR))
 
-    if max_sec > 0:
+    if max_sec > 0 and not dry_run:
         train_ds = train_ds.filter(lambda ex: keep_max_duration(ex, audio_col, max_sec), num_proc=num_proc)
         dev_ds = dev_ds.filter(lambda ex: keep_max_duration(ex, audio_col, max_sec), num_proc=num_proc)
         test_ds = test_ds.filter(lambda ex: keep_max_duration(ex, audio_col, max_sec), num_proc=num_proc)
@@ -514,6 +508,8 @@ def run_training(cfg: dict, config_path: Path, dry_run: bool = False):
         print("Dry run: resolved training summary")
         print(json.dumps(summary, indent=2))
         return summary
+
+    from transformers import Trainer, TrainingArguments, Wav2Vec2ForCTC
 
     processor = build_processor(vocab_path)
     data_collator = DataCollatorCTCWithPadding(processor=processor, audio_col=audio_col)
