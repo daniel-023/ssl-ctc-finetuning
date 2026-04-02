@@ -1,47 +1,43 @@
-# Stage 01: Data Prep
+# Stage 01: Data Prep (Build Vocab)
 
-## Goal
-Define the dataset + transcript source, then build the CTC vocabulary used for training.
+## Purpose
 
-## Inputs
-- One training config under `configs/`
-- Dataset backend in config:
-  - `dataset.backend=hf` or `dataset.backend=local`
-- Transcript source in config:
-  - `transcript.source=inline`, or
-  - `transcript.source=jsonl` with `transcript.jsonl.type=ground_truth|pseudolabel`
+Create the character vocabulary used by CTC training.
 
-## Recommended configs
-- Ground truth from HF dataset field:
-  - `configs/train_hf_dataset_text.yaml`
-- Pseudolabel JSON + HF audio:
-  - `configs/train_hf_audio_pseudolabel_json.yaml`
-- Ground truth JSON join:
-  - `configs/train_hf_audio_external_gt_json.yaml`
-- Local manifest mode:
-  - `configs/train_local_manifest_text.yaml`
+## Input
+
+- One config file under `configs/`
+- Correct transcript source in that config:
+  - `transcript.source=inline` for dataset text field
+  - `transcript.source=jsonl` for joined JSONL transcripts
 
 ## Command
+
 ```bash
-ctc-build-vocab --config <CONFIG_YAML>
+CONFIG=configs/train_hf_dataset_text.yaml
+ctc-build-vocab --config "$CONFIG"
 ```
 
-Example:
+Dry-run check:
+
 ```bash
-ctc-build-vocab --config configs/train_hf_audio_pseudolabel_json.yaml
+ctc-build-vocab --config "$CONFIG" --dry-run
 ```
 
-## What `ctc-build-vocab` does
-- Loads transcript text according to config.
-- Applies text normalization (if enabled).
-- Collects unique characters.
-- Adds CTC special tokens: `|`, `[UNK]`, `[PAD]`.
-- Writes vocabulary JSON to `vocab.out_path`.
+## Expected output
 
-## Outputs
-- Vocab JSON at `vocab.out_path`.
-- `vocab_summary.json` in the same output directory.
+At `vocab.out_path` from config:
+- vocab JSON file
+- `vocab_summary.json`
 
-## Quick checks
-- Confirm vocab file exists at `vocab.out_path`.
-- Confirm `vocab_summary.json` reports expected source and vocab size.
+## Verify quickly
+
+```bash
+ls -la ../artifacts/vocab
+cat ../artifacts/vocab/vocab_summary.json
+```
+
+## Common issues
+
+- `...not found` path errors: config paths are resolved relative to the config file.
+- Empty or tiny vocab: transcript text column may be wrong (`dataset.columns.transcript` or `transcript.jsonl.text_col`).

@@ -1,36 +1,49 @@
-# Stage 03: Eval
+# Stage 03: Eval and Compare
 
-## Goal
-Evaluate a fine-tuned model and optionally compare two runs.
+## Purpose
 
-## 3.1 Evaluate one run
-Command:
+Evaluate one trained run and optionally generate GT vs pseudolabel comparison plots.
+
+## A) Evaluate one run
+
 ```bash
-ctc-eval --config <CONFIG_YAML> --set eval.model_dir=<RUN_DIR>
+CONFIG=configs/train_hf_dataset_text.yaml
+RUN_DIR=../runs/xlsr300m_gt
+
+ctc-eval --config "$CONFIG" --set eval.model_dir="$RUN_DIR"
 ```
 
-Example:
+Dry-run check:
+
 ```bash
-ctc-eval --config configs/train_hf_dataset_text.yaml \
-  --set eval.model_dir=runs/xlsr300m_gt
+ctc-eval --config "$CONFIG" --dry-run
 ```
 
-Outputs:
-- `eval.out_json` (aggregate metrics)
-- `eval.out_jsonl` (per-utterance predictions, if enabled)
+Expected outputs (paths set in config):
+- `eval.out_json`
+- `eval.out_jsonl` (if enabled)
 
-## 3.2 Compare ground-truth vs pseudolabel runs
-Command:
+## B) Compare GT vs pseudolabel runs
+
+Set run paths in `configs/plot_compare.yaml`, then run:
+
 ```bash
 ctc-plot-compare --config configs/plot_compare.yaml
 ```
 
-Outputs:
+Dry-run check:
+
+```bash
+ctc-plot-compare --config configs/plot_compare.yaml --dry-run
+```
+
+Expected outputs:
 - `dev_wer_vs_global_step.png`
 - `train_loss_vs_global_step.png`
 - `final_test_wer_<variant>.png`
 - `plot_summary.json`
 
-## Quick checks
-- Confirm WER metrics exist in eval output JSON.
-- Confirm comparison plot files exist in `plot.out_dir`.
+## Common issues
+
+- `No data available for plot`: missing eval points in `trainer_state.json`.
+- `No final test WER values found`: missing `test_metrics.json` or expected keys in run folders.

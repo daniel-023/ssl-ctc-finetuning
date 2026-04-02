@@ -1,39 +1,53 @@
 # Stage 02: Train
 
-## Goal
-Fine-tune XLSR-CTC using the config and vocab prepared in Stage 01.
+## Purpose
 
-## Prerequisites
-- Stage 01 completed successfully.
-- `vocab.out_path` exists.
+Fine-tune XLSR-CTC using the vocab and transcript mode defined by config.
+
+## Prerequisite
+
+Run Stage 01 first for the same config so `vocab.out_path` exists.
 
 ## Command
+
 ```bash
-ctc-train --config <CONFIG_YAML>
+CONFIG=configs/train_hf_dataset_text.yaml
+ctc-train --config "$CONFIG"
 ```
 
-Example:
+Optional dry-run (checks config and data wiring without training):
+
 ```bash
-ctc-train --config configs/train_hf_dataset_text.yaml
+ctc-train --config "$CONFIG" --dry-run
 ```
 
 Override example:
+
 ```bash
-ctc-train --config configs/train_hf_dataset_text.yaml \
-  --set training.out_dir=runs/xlsr300m_gt_$(date +%Y%m%d_%H%M%S) \
+ctc-train --config "$CONFIG" \
+  --set training.out_dir=../runs/xlsr300m_gt_$(date +%Y%m%d_%H%M%S) \
   --set training.epochs=10
 ```
 
-## Outputs
+## Expected output
+
 Inside `training.out_dir`:
 - `resolved_config.yaml`
 - `train_command.sh`
 - `dataset_summary.json`
-- Hugging Face trainer checkpoints
-- Final model + processor files
+- checkpoints and final model files
 - `test_metrics.json`
 
-## Quick checks
-- Confirm `dataset_summary.json` has expected train/dev/test sizes.
-- Confirm `test_metrics.json` exists.
-- Confirm best checkpoint metric matches `training.best_metric`.
+## Verify quickly
+
+```bash
+RUN_DIR=../runs/xlsr300m_gt
+ls -la "$RUN_DIR"
+cat "$RUN_DIR"/dataset_summary.json
+cat "$RUN_DIR"/test_metrics.json
+```
+
+## Common issues
+
+- `Vocab file not found`: run Stage 01 first, or fix `vocab.out_path`.
+- OOM: reduce `training.bs` and/or increase `training.grad_accum`.
