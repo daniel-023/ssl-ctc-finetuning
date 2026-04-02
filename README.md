@@ -1,83 +1,65 @@
 # ssl-ctc-finetuning
 
-Config-driven SSL-CTC fine-tuning framework (XLSR-first defaults).
+Config-driven SSL-CTC fine-tuning framework with XLSR-first defaults and reproducible experiment presets.
 
-## Quick start
+## What this repo covers
+
+- Fine-tuning with Hugging Face or local datasets.
+- Transcript source selection via config:
+  - dataset transcript field (`transcript.source=inline`)
+  - external JSONL join (`transcript.source=jsonl`)
+- Ground-truth vs pseudolabel experiment support.
+- Unified normalization support during vocab, train, and eval.
+- Standardized outputs for run comparison and plotting.
+
+## Installation
 
 ```bash
 pip install -e .
 ```
 
-## Pipeline stages
+## Recommended workflow
 
-Run the project as 3 explicit stages:
+Run by stage (single source of truth for commands and checks):
 
 1. Data prep: [`pipeline/01_data_prep/README.md`](pipeline/01_data_prep/README.md)
 2. Train: [`pipeline/02_train/README.md`](pipeline/02_train/README.md)
-3. Eval: [`pipeline/03_eval/README.md`](pipeline/03_eval/README.md)
+3. Eval + compare plots: [`pipeline/03_eval/README.md`](pipeline/03_eval/README.md)
 
-Build vocab + train (HF dataset transcript field):
+Shortcut overview: [`pipeline/README.md`](pipeline/README.md)  
+Additional notes: [`docs/run_guide.md`](docs/run_guide.md), [`docs/data_schema.md`](docs/data_schema.md)
 
-```bash
-ctc-build-vocab --config configs/train_hf_dataset_text.yaml
-ctc-train --config configs/train_hf_dataset_text.yaml
-```
+## Config presets
 
-Note: this config reproduces your original experiment design by building a shared vocab
-from HF transcript text + pseudolabel text (`vocab.mode=shared_hf_plus_pseudolabel`).
+- `configs/train_hf_dataset_text.yaml`
+  - HF audio + HF transcript field (ground truth)
+  - Reproduces original setup with shared vocab augmentation from pseudolabel text.
+- `configs/train_hf_audio_pseudolabel_json.yaml`
+  - HF audio + pseudolabel JSONL transcripts joined by ID.
+- `configs/train_hf_audio_external_gt_json.yaml`
+  - HF audio + external ground-truth JSONL transcripts joined by ID.
+- `configs/train_local_manifest_text.yaml`
+  - Local JSONL manifests with inline transcript fields.
+- `configs/plot_compare.yaml`
+  - Ground-truth run vs pseudolabel run comparison plots.
 
-Build vocab + train (HF audio + pseudolabel JSON):
-
-```bash
-ctc-build-vocab --config configs/train_hf_audio_pseudolabel_json.yaml
-ctc-train --config configs/train_hf_audio_pseudolabel_json.yaml
-```
-
-Default pseudolabel source in this repo:
+Default pseudolabel file in this repo:
 - `examples/pseudolabels/IMDA_pseudolabels.jsonl`
 
-Build vocab + train (local manifests with transcript field):
+## Reproducibility conventions
 
-```bash
-ctc-build-vocab --config configs/train_local_manifest_text.yaml
-ctc-train --config configs/train_local_manifest_text.yaml
-```
+- Every training run writes:
+  - `resolved_config.yaml`
+  - `train_command.sh`
+  - `dataset_summary.json`
+  - checkpoints and `test_metrics.json`
+- Use CLI overrides for controlled variations:
+  - `--set key=value`
 
-Build vocab + train (HF/local audio + external ground-truth JSON):
+## Repository map
 
-```bash
-ctc-build-vocab --config configs/train_hf_audio_external_gt_json.yaml
-ctc-train --config configs/train_hf_audio_external_gt_json.yaml
-```
-
-Evaluate:
-
-```bash
-ctc-eval --config configs/train_hf_dataset_text.yaml --set eval.model_dir=runs/xlsr300m_gt
-ctc-eval --config configs/train_local_manifest_text.yaml --set eval.model_dir=runs/local_xlsr300m_gt
-```
-
-Plot comparison (ground-truth vs pseudolabel run):
-
-```bash
-ctc-plot-compare --config configs/plot_compare.yaml
-```
-
-### Override examples
-
-```bash
-ctc-train --config configs/train_hf_dataset_text.yaml \
-  --set training.out_dir=runs/xlsr300m_gt_$(date +%Y%m%d_%H%M%S) \
-  --set training.epochs=10
-```
-
-## Naming conventions
-
-- `dataset.backend`: `hf` or `local`
-- `dataset.hf_name` / `dataset.hf_config`
-- `dataset.splits.*`
-- `dataset.columns.*`
-- `transcript.source`: `inline` or `jsonl`
-- `transcript.jsonl.type`: `ground_truth` or `pseudolabel`
-- `transcript.jsonl.*`
-- `transcript.join.dataset_key` + `transcript.join.json_key` + `transcript.join.strict`
+- `src/ctc_framework/`: framework code and CLIs
+- `configs/`: experiment presets
+- `pipeline/`: stage-based runbooks
+- `examples/`: sample manifests/transcript inputs
+- `docs/`: schema and usage notes
