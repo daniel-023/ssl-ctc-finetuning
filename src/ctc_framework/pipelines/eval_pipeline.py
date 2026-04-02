@@ -38,6 +38,87 @@ class InferenceCollator:
         )
 
 
+def _load_jsonl_transcript_map(cfg: dict, config_path: Path) -> Dict[str, str]:
+    json_path = resolve_path(get_in(cfg, "transcript.jsonl.json_path"), config_path)
+    if json_path is None or not json_path.exists():
+        raise FileNotFoundError(f"Transcript JSON not found: {json_path}")
+
+    transcript_id_col = str(get_in(cfg, "transcript.join.json_key", "id"))
+    transcript_text_col = str(get_in(cfg, "transcript.jsonl.text_col", "text"))
+
+    ds = load_dataset("json", data_files=str(json_path), split="train")
+    if transcript_id_col not in ds.column_names:
+        raise ValueError(
+            f"Transcript id column '{transcript_id_col}' not found in {json_path}. "
+            f"Available columns: {ds.column_names}"
+        )
+    if transcript_text_col not in ds.column_names:
+        raise ValueError(
+            f"Transcript text column '{transcript_text_col}' not found in {json_path}. "
+            f"Available columns: {ds.column_names}"
+        )
+
+    out: Dict[str, str] = {}
+    for row in ds:
+        key = str(row[transcript_id_col])
+        val = str(row[transcript_text_col] or "")
+        if key in out:
+            raise ValueError(f"Duplicate transcript key '{key}' found in JSON {json_path}.")
+        out[key] = val
+
+    if not out:
+        raise ValueError(f"Transcript JSON is empty: {json_path}")
+    return out
+
+
+def _apply_jsonl_transcripts(ds, split_name: str, cfg: dict, text_col: str, transcript_map: Dict[str, str]):
+    dataset_id_col = str(get_in(cfg, "transcript.join.dataset_key", "id"))
+    strict = bool(get_in(cfg, "transcript.join.strict", True))
+
+    if dataset_id_col not in ds.column_names:
+        raise ValueError(
+            f"Dataset id column '{dataset_id_col}' not found for split '{split_name}'. "
+            f"Available columns: {ds.column_names}"
+        )
+
+    ids = [str(x) for x in ds[dataset_id_col]]
+    keep_indices: List[int] = []
+    keep_texts: List[str] = []
+    missing: List[str] = []
+
+    for i, key in enumerate(ids):
+        text = transcript_map.get(key)
+        if text is None:
+            missing.append(key)
+            continue
+        keep_indices.append(i)
+        keep_texts.append(text)
+
+    if not keep_indices:
+        raise ValueError(
+            f"Transcript JSON join produced 0 matches for split '{split_name}'. "
+            "Check dataset/transcript join keys and id formats."
+        )
+
+    if missing and strict:
+        preview = ", ".join(missing[:5])
+        raise ValueError(
+            f"Transcript JSON join missing {len(missing)} ids for split '{split_name}'. "
+            f"Examples: {preview}. Set transcript.join.strict=false to drop unmatched rows."
+        )
+
+    out_ds = ds.select(keep_indices)
+    if text_col in out_ds.column_names:
+        out_ds = out_ds.remove_columns(text_col)
+    out_ds = out_ds.add_column(text_col, keep_texts)
+
+    print(
+        f"Transcript JSON join split={split_name}: matched={len(keep_indices)} "
+        f"dropped_unmatched={len(missing)} source_rows={len(ds)}"
+    )
+    return out_ds
+
+
 def _resolve_eval_manifest(cfg: dict, eval_split: str, config_path: Path) -> Path:
     explicit = get_in(cfg, "eval.local_manifest")
     if explicit:
@@ -93,6 +174,9 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
     id_col = get_in(cfg, "eval.columns.id") or get_in(cfg, "dataset.columns.id", "id")
     if not audio_col or not text_col:
         raise ValueError("Unable to resolve eval audio/transcript columns from config.")
+    audio_col = str(audio_col)
+    text_col = str(text_col)
+    id_col = str(id_col)
 
     if backend == "hf":
         hf_name = str(get_in(cfg, "dataset.hf_name"))
@@ -113,17 +197,23 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
     else:
         raise ValueError("dataset.backend must be 'hf' or 'local'")
 
+    transcript_source = str(get_in(cfg, "transcript.source", "inline"))
+    transcript_json_type = str(get_in(cfg, "transcript.jsonl.type", "ground_truth"))
+    if transcript_source == "jsonl" and transcript_json_type == "ground_truth":
+        transcript_map = _load_jsonl_transcript_map(cfg, config_path)
+        ds = _apply_jsonl_transcripts(ds, eval_split, cfg, text_col, transcript_map)
+
     if audio_col not in ds.column_names:
         raise ValueError(f"audio column '{audio_col}' not in dataset columns: {ds.column_names}")
     if text_col not in ds.column_names:
         raise ValueError(f"text column '{text_col}' not in dataset columns: {ds.column_names}")
 
-    ds = ds.cast_column(str(audio_col), Audio(sampling_rate=TARGET_SR))
+    ds = ds.cast_column(audio_col, Audio(sampling_rate=TARGET_SR))
 
     max_sec = float(get_in(cfg, "eval.max_sec", 0.0))
     if max_sec > 0:
         before = len(ds)
-        ds = ds.filter(lambda ex: keep_max_duration(ex, str(audio_col), max_sec))
+        ds = ds.filter(lambda ex: keep_max_duration(ex, audio_col, max_sec))
         print(f"Duration filter: kept {len(ds)}/{before} with max_sec={max_sec}")
 
     if bool(get_in(cfg, "eval.discard_number_samples", False)):
@@ -160,7 +250,7 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
         out = text_normalizer.normalize(s)
         return str(out["text_norm"]), str(out["text_no_fill"])
 
-    raw_refs = [str(x or "").lower() for x in ds[str(text_col)]]
+    raw_refs = [str(x or "").lower() for x in ds[text_col]]
     norm_refs: List[str] = []
     nofill_refs: List[str] = []
     for text in raw_refs:
@@ -181,6 +271,8 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
         "audio_col": str(audio_col),
         "text_col": str(text_col),
         "id_col": str(id_col),
+        "transcript_source": transcript_source,
+        "transcript_json_type": transcript_json_type,
         "normalizer_enabled": use_text_normalizer,
         "normalizer_yaml": used_yaml,
         "space_chinese_chars": space_chinese_chars,
@@ -199,7 +291,7 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
     model = Wav2Vec2ForCTC.from_pretrained(str(model_dir)).to(device)
     model.eval()
 
-    collator = InferenceCollator(processor=processor, audio_col=str(audio_col))
+    collator = InferenceCollator(processor=processor, audio_col=audio_col)
     loader = torch.utils.data.DataLoader(
         ds,
         batch_size=int(get_in(cfg, "eval.batch_size", 16)),
@@ -249,7 +341,7 @@ def run_eval(cfg: dict, config_path: Path, dry_run: bool = False):
     print(f"Wrote metrics -> {out_json}")
 
     if out_jsonl is not None:
-        id_values = ds[str(id_col)] if str(id_col) in ds.column_names else [None] * len(ds)
+        id_values = ds[id_col] if id_col in ds.column_names else [None] * len(ds)
         out_jsonl.parent.mkdir(parents=True, exist_ok=True)
         with out_jsonl.open("w", encoding="utf-8") as fout:
             for i in range(len(ds)):
