@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Evaluate one trained run and optionally generate GT vs pseudolabel comparison plots.
+Evaluate one trained model and optionally generate comparison plots between a ground-truth run and a pseudolabel run.
 
 ## A) Evaluate one run
 
@@ -13,19 +13,30 @@ RUN_DIR=../runs/xlsr300m_gt
 ctc-eval --config "$CONFIG" --set eval.model_dir="$RUN_DIR"
 ```
 
-Dry-run check:
+Dry-run (resolves dataset and normalizer config without running inference):
 
 ```bash
 ctc-eval --config "$CONFIG" --dry-run
 ```
 
-Expected outputs (paths set in config):
-- `eval.out_json`
-- `eval.out_jsonl` (if enabled)
+### Output files
+
+| File | Set by | Description |
+|------|--------|-------------|
+| `eval_outputs/metrics.json` | `eval.out_json` | WER metrics (see below) |
+| `eval_outputs/preds.jsonl` | `eval.out_jsonl` | Per-utterance predictions and references (written only when `eval.out_jsonl` is set in config) |
+
+### Metrics in `metrics.json`
+
+| Key | Description |
+|-----|-------------|
+| `wer_raw_ref` | WER: raw predictions vs raw references (no normalisation) |
+| `wer_norm_ref` | WER: normalised predictions vs normalised references |
+| `wer_norm_no_fill_ref` | WER: normalised predictions vs references with fillers removed (strictest) |
 
 ## B) Compare GT vs pseudolabel runs
 
-Set run paths in `configs/plot_compare.yaml`, then run:
+Edit `configs/plot_compare.yaml` to set both run directories, then run:
 
 ```bash
 ctc-plot-compare --config configs/plot_compare.yaml
@@ -37,13 +48,18 @@ Dry-run check:
 ctc-plot-compare --config configs/plot_compare.yaml --dry-run
 ```
 
-Expected outputs:
-- `dev_wer_vs_global_step.png`
-- `train_loss_vs_global_step.png`
-- `final_test_wer_<variant>.png`
-- `plot_summary.json`
+Both run directories must contain `trainer_state.json` (written by HuggingFace Trainer during training) and `test_metrics.json`.
+
+### Output files
+
+| File | Description |
+|------|-------------|
+| `dev_wer_vs_global_step.png` | Dev WER curves over training steps for both runs |
+| `train_loss_vs_global_step.png` | Training loss curves |
+| `final_test_wer_<variant>.png` | Bar chart of final test WER for both runs |
+| `plot_summary.json` | Extracted metrics used for the plots |
 
 ## Common issues
 
-- `No data available for plot`: missing eval points in `trainer_state.json`.
-- `No final test WER values found`: missing `test_metrics.json` or expected keys in run folders.
+- **`No data available for plot`**: `trainer_state.json` has no eval entries — check that `eval_steps` was set during training and training ran long enough to reach the first eval checkpoint.
+- **`No final test WER values found`**: `test_metrics.json` is missing or doesn't contain the expected keys — verify training completed successfully.

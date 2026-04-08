@@ -1,7 +1,16 @@
 plot:
+  # Paths to two completed training run directories (must contain trainer_state.json
+  # and test_metrics.json). Typically one ground-truth run and one pseudolabel run.
   ground_truth_run: ../runs/xlsr300m_gt
   pseudolabel_run: ../runs/xlsr300m_pseudo
+
+  # Labels used in plot legends
   ground_truth_label: Ground truth
   pseudolabel_label: Pseudolabel
+
+  # Which WER variant to plot on the dev WER and final test WER charts.
+  # norm = normalised WER (recommended); raw = raw decoded WER
   wer_variant: norm
+
+  # Output directory for generated PNG files and plot_summary.json
   out_dir: ../runs/compare_plots_norm

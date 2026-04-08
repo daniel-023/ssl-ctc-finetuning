@@ -13,32 +13,37 @@ dataset:
     audio: audio
     transcript: text
     test_audio: audio
-    test_transcript: text
+    test_transcript: text  # test split has ground-truth text in the HF dataset
     id: id
 
 transcript:
-  source: jsonl
+  source: jsonl  # transcripts come from an external JSONL file, not the HF dataset text column
   jsonl:
     type: pseudolabel
     json_path: ../examples/pseudolabels/IMDA_pseudolabels.jsonl
-    dev_json_path: null
+    dev_json_path: null  # null = split dev set from train; set to a separate JSONL for pseudolabel dev
     text_col: text
+    # audio_path_col: the pseudolabel JSONL field whose filename stem is used as the utterance ID
+    # to match against the HF dataset's hf_id_col.
     audio_path_col: audio_path
-    hf_id_col: id
+    hf_id_col: id   # column in the HF dataset used to match pseudolabel IDs
+    # hf_audio_splits: HF splits to draw audio from when joining pseudolabels.
+    # Excludes 'test' to prevent test-set leakage into training.
     hf_audio_splits: train,validation
-    prevent_test_leakage: true
+    prevent_test_leakage: true  # raise an error if test split is listed in hf_audio_splits
     score_col: score
-    min_score: 0.6
+    min_score: 0.6  # only use pseudolabels with confidence >= 0.6
 
 normalization:
-  use_text_normalizer: true
   normalizer_yaml: null
 
 vocab:
+  # shared_hf_plus_pseudolabel: vocab covers both HF ground-truth text and pseudolabel text,
+  # so the character set is consistent even when training on pseudolabels only.
   mode: shared_hf_plus_pseudolabel
   out_path: ../artifacts/vocab/vocab_shared.json
   score_col: score
-  min_score: 0.0
+  min_score: 0.0    # no filter on the primary HF source
   aux_score_col: score
   aux_min_score: 0.6
 

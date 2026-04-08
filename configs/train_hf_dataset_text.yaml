@@ -13,49 +13,52 @@ dataset:
     audio: audio
     transcript: text
     test_audio: audio
-    test_transcript: null
+    test_transcript: null  # null = use same column as transcript
     id: id
 
 transcript:
-  source: inline
+  source: inline  # transcripts come from the HF dataset's text column directly
   jsonl:
+    # jsonl section is only used by the vocab build (shared_hf_plus_pseudolabel mode below),
+    # not by training — transcript.source=inline means training ignores it.
     type: pseudolabel
     json_path: ../examples/pseudolabels/IMDA_pseudolabels.jsonl
     text_col: text
     score_col: score
-    min_score: 0.6
+    min_score: 0.6  # only pseudolabels above this confidence are included in the vocab
 
 normalization:
-  use_text_normalizer: true
-  normalizer_yaml: null
+  normalizer_yaml: null  # null = use the built-in fillers.yaml
 
 vocab:
+  # shared_hf_plus_pseudolabel: character set is built from BOTH the HF dataset transcripts
+  # AND the pseudolabel JSONL, giving broader coverage than the GT text alone.
   mode: shared_hf_plus_pseudolabel
   out_path: ../artifacts/vocab/vocab_shared.json
   score_col: score
-  min_score: 0.0
+  min_score: 0.0    # no score filter on the primary HF source (it has ground-truth text)
   aux_score_col: score
-  aux_min_score: 0.6
+  aux_min_score: 0.6  # only include pseudolabels above this confidence in the vocab
 
 training:
   out_dir: ../runs/xlsr300m_gt
-  max_sec: 30.0
-  num_proc: 8
+  max_sec: 30.0     # discard audio longer than 30 s
+  num_proc: 8       # CPU workers for dataset mapping (set to 1 if using the full normalizer)
   seed: 42
-  val_size: 0.1
-  bs: 16
-  grad_accum: 2
+  val_size: 0.1     # fraction of train split used for validation when no val split exists
+  bs: 16            # per-device batch size
+  grad_accum: 2     # effective batch = bs * grad_accum = 32
   lr: 3.0e-5
   epochs: 20.0
   lr_scheduler: cosine
   warmup_ratio: 0.1
   weight_decay: 0.01
   max_grad_norm: 1.0
-  eval_steps: 1200
-  save_steps: 1200
+  eval_steps: 1200  # evaluate on dev set every N optimizer steps
+  save_steps: 1200  # save a checkpoint every N optimizer steps
   logging_steps: 50
-  save_total_limit: 4
-  best_metric: wer_decoded_norm
+  save_total_limit: 4  # keep at most 4 checkpoints on disk
+  best_metric: wer_decoded_norm  # pick the checkpoint with lowest normalised WER
 
 eval:
   split: test

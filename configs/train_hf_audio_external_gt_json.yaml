@@ -13,25 +13,26 @@ dataset:
     audio: audio
     transcript: text
     test_audio: audio
-    test_transcript: text
+    test_transcript: text  # test split has ground-truth text in the HF dataset
     id: id
 
 transcript:
-  source: jsonl
+  source: jsonl  # transcripts come from an external ground-truth JSONL, not the HF text column
   jsonl:
     type: ground_truth
     json_path: ../examples/transcripts/ground_truth.jsonl
     text_col: text
   join:
-    dataset_key: id
-    json_key: id
-    strict: true
+    dataset_key: id   # match on this column in the HF dataset
+    json_key: id      # match on this column in the transcript JSONL
+    strict: true      # raise an error if any dataset ID is missing from the JSONL
 
 normalization:
-  use_text_normalizer: true
   normalizer_yaml: null
 
 vocab:
+  # dataset_only: vocab is built only from the external ground-truth JSONL,
+  # which is sufficient since all training text comes from that file.
   mode: dataset_only
   out_path: ../artifacts/vocab/vocab_external_gt.json
 

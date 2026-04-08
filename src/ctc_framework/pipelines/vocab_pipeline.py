@@ -1,11 +1,10 @@
 import json
 from pathlib import Path
-from typing import Optional
 
 from datasets import load_dataset
 
 from ctc_framework.config.loader import get_in
-from ctc_framework.pipelines.common import build_text_normalizer, normalize_text_basic, resolve_path
+from ctc_framework.pipelines.utils import build_normalizer_fn, resolve_path
 
 
 def _load_source(cfg: dict, config_path: Path):
@@ -74,21 +73,8 @@ def run_vocab_build(cfg: dict, config_path: Path, dry_run: bool = False):
     if out_path is None:
         raise ValueError("vocab.out_path is required")
 
-    use_text_normalizer = bool(get_in(cfg, "normalization.use_text_normalizer", True))
     normalizer_yaml = get_in(cfg, "normalization.normalizer_yaml")
-
-    if use_text_normalizer:
-        text_normalizer, used_yaml = build_text_normalizer(normalizer_yaml, config_path)
-        print(f"Using external normalizer in vocab build: {used_yaml}")
-    else:
-        text_normalizer = None
-        used_yaml = None
-        print("Using basic normalization in vocab build.")
-
-    def text_norm_fn(s: str) -> str:
-        if text_normalizer is None:
-            return normalize_text_basic(s)
-        return text_normalizer.normalize(s)["text_norm"]
+    text_norm_fn, _, used_yaml = build_normalizer_fn(normalizer_yaml, config_path)
 
     ds, text_col, src_label = _load_source(cfg, config_path)
     ds = _apply_score_filter(
@@ -130,7 +116,6 @@ def run_vocab_build(cfg: dict, config_path: Path, dry_run: bool = False):
 
     summary = {
         "source": src_label,
-        "normalizer_enabled": use_text_normalizer,
         "normalizer_yaml": used_yaml,
         "vocab_size": len(vocab_dict),
         "output_path": str(out_path),

@@ -50,7 +50,6 @@ DEFAULTS = {
         },
     },
     "normalization": {
-        "use_text_normalizer": True,
         "normalizer_yaml": None,
     },
     "vocab": {
@@ -94,7 +93,6 @@ DEFAULTS = {
         "num_samples": 0,
         "max_sec": 0.0,
         "discard_number_samples": False,
-        "use_text_normalizer": True,
         "normalizer_yaml": None,
         "space_chinese_chars": True,
         "verbalize_numbers": False,

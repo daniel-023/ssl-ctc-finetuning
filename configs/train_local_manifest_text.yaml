@@ -2,15 +2,15 @@ model:
   name_or_path: facebook/wav2vec2-xls-r-300m
 
 dataset:
-  backend: local
-  hf_name: local_manifest_dataset
+  backend: local  # load audio and transcripts from local JSONL manifest files
+  hf_name: local_manifest_dataset  # unused when backend=local; kept for schema completeness
   hf_config: null
   splits:
     train: train
     val: validation
     test: test
   columns:
-    audio: audio_path
+    audio: audio_path   # column name for the audio path in the local manifest JSONL
     transcript: text
     test_audio: audio_path
     test_transcript: null
@@ -20,34 +20,35 @@ dataset:
       train: ../examples/manifests/train.jsonl
       val: ../examples/manifests/val.jsonl
       test: ../examples/manifests/test.jsonl
-    audio_root: null
+    audio_root: null  # if audio paths in the manifest are relative, set this to the base directory
 
 transcript:
-  source: inline
+  source: inline  # transcripts come from the manifest's text column
 
 normalization:
-  use_text_normalizer: true
   normalizer_yaml: null
 
 vocab:
-  mode: dataset_only
+  mode: dataset_only  # vocab built from the local manifest transcripts only
   out_path: ../artifacts/vocab/vocab_local_gt.json
 
 training:
   out_dir: ../runs/local_xlsr300m_gt
   max_sec: 30.0
+  # num_proc and bs are reduced vs HF configs because local I/O is typically slower
+  # and the dataset is often smaller. Adjust upward for large local datasets.
   num_proc: 4
   seed: 42
   val_size: 0.1
-  bs: 8
-  grad_accum: 2
+  bs: 8             # per-device batch size (lower than HF preset to reduce memory pressure)
+  grad_accum: 2     # effective batch = 16
   lr: 3.0e-5
-  epochs: 10.0
+  epochs: 10.0      # fewer epochs for smaller local datasets; increase if underfitting
   lr_scheduler: cosine
   warmup_ratio: 0.1
   weight_decay: 0.01
   max_grad_norm: 1.0
-  eval_steps: 500
+  eval_steps: 500   # evaluate more frequently since dataset is smaller
   save_steps: 500
   logging_steps: 50
   save_total_limit: 4

@@ -24,11 +24,34 @@ This project is run in 3 stages.
 ```bash
 CONFIG=configs/train_hf_dataset_text.yaml
 
+# Validate data paths without side-effects
+ctc-build-vocab --config "$CONFIG" --dry-run
+ctc-train --config "$CONFIG" --dry-run
+
+# Run for real
 ctc-build-vocab --config "$CONFIG"
 ctc-train --config "$CONFIG"
+# eval.model_dir must point to the run directory from training (set in training.out_dir)
 ctc-eval --config "$CONFIG" --set eval.model_dir=../runs/xlsr300m_gt
 ```
 
-Use `configs/plot_compare.yaml` only when you already have both runs:
-- GT run directory
-- pseudolabel run directory
+Use `configs/plot_compare.yaml` only after you have both a GT and a pseudolabel run directory.
+
+## Common overrides
+
+```bash
+# Timestamped run directory
+ctc-train --config "$CONFIG" \
+  --set training.out_dir=../runs/xlsr300m_gt_$(date +%Y%m%d_%H%M%S)
+
+# Smaller GPU: halve batch size, double grad_accum to keep effective batch the same
+ctc-train --config "$CONFIG" \
+  --set training.bs=8 --set training.grad_accum=4
+
+# Evaluate on validation split instead of test
+ctc-eval --config "$CONFIG" \
+  --set eval.split=validation \
+  --set eval.model_dir=../runs/xlsr300m_gt
+```
+
+Note: config paths resolve relative to the config file location, not the working directory.
